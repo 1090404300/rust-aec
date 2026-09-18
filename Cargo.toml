@@ -7,8 +7,8 @@ edition = "2024"
 crossbeam-channel = "0.5"
 ringbuf = "0.4"
 anyhow = "1"
-sonora = "0.1"
 windows-core = "0.58"
+sonora = "0.1.0"
 
 [dependencies.windows]
 version = "0.58"
@@ -37,3 +37,4 @@ embed-resource = "3"
 # Local fork of sonora-aec3 with the zero_filter off-by-one bug fixed.
 # See vendor/sonora-aec3/src/adaptive_fir_filter.rs (update_size fn).
 sonora-aec3 = { path = "vendor/sonora-aec3" }
+sonora = { path = "vendor/sonora" }

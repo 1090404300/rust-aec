@@ -3,6 +3,7 @@
 use anyhow::Result;
 use sonora::config::EchoCanceller;
 use sonora::{AudioProcessing, Config, StreamConfig};
+use std::time::{Duration, Instant};
 
 /// Frame size in samples at 48kHz (10ms).
 pub const FRAME_SIZE: usize = 480;
@@ -10,10 +11,12 @@ pub const FRAME_SIZE: usize = 480;
 pub const NUM_CHANNELS: usize = 1;
 /// Sample rate in Hz.
 pub const SAMPLE_RATE: usize = 48_000;
+const DELAY_RECHECK_INTERVAL: Duration = Duration::from_secs(3);
 
 pub struct AecProcessor {
     apm: AudioProcessing,
     render_buf: Vec<f32>,
+    last_delay_recheck: Instant,
 }
 
 impl AecProcessor {
@@ -31,6 +34,7 @@ impl AecProcessor {
         Ok(Self {
             apm,
             render_buf: vec![0.0f32; FRAME_SIZE],
+            last_delay_recheck: Instant::now(),
         })
     }
 
@@ -38,6 +42,11 @@ impl AecProcessor {
     /// `mic_frame` and `ref_frame` must each be exactly FRAME_SIZE samples.
     /// Returns processed (echo-cancelled) samples.
     pub fn process_frame(&mut self, mic_frame: &[f32], ref_frame: &[f32], out: &mut [f32]) {
+        if self.last_delay_recheck.elapsed() >= DELAY_RECHECK_INTERVAL {
+            self.apm.reset_delay_estimator();
+            self.last_delay_recheck = Instant::now();
+        }
+
         // Feed far-end (speaker/reference) signal.
         self.render_buf.fill(0.0);
         if let Err(e) = self

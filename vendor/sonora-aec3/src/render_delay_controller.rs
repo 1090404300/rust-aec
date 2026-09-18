@@ -83,6 +83,10 @@ impl RenderDelayController {
         }
     }
 
+
+    pub(crate) fn reset_delay_estimator(&mut self) {
+        self.delay_estimator.reset(true);
+    }
     /// Aligns the render buffer content with the capture signal.
     pub(crate) fn get_delay(
         &mut self,

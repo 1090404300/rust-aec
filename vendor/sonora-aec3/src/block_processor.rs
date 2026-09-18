@@ -120,6 +120,13 @@ impl BlockProcessor {
         self.render_buffer.set_audio_buffer_delay(delay_ms);
     }
 
+    pub fn reset_delay_estimator(&mut self) {
+        if let Some(ref mut dc) = self.delay_controller {
+            dc.reset_delay_estimator();
+        }
+        self.estimated_delay = None;
+    }
+
     /// Processes a block of capture data.
     pub fn process_capture(
         &mut self,
