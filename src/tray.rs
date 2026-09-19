@@ -30,6 +30,7 @@ const ID_MIC_BASE: u32 = 1000;
 const ID_SPEAKER_BASE: u32 = 1100;
 const ID_OUTPUT_BASE: u32 = 1200;
 const ID_AUTOSTART: u32 = 2000;
+const ID_LOCK_DELAY: u32 = 2001;
 const ID_VB_CABLE: u32 = 3000;
 const ID_GITHUB: u32 = 3001;
 const ID_EXIT: u32 = 9999;
@@ -43,6 +44,9 @@ pub struct TrayState {
     pub current_speaker_id: Option<String>,
     pub preferred_output_id: Option<String>,
     pub current_output_id: Option<String>,
+    pub lock_delay: bool,
+    pub delay_ms: Option<i32>,
+    pub current_delay_ms: Option<i32>,
 }
 
 struct TrayContext {
@@ -339,6 +343,21 @@ unsafe fn handle_right_click(hwnd: HWND) {
             let _ = InsertMenuItemW(menu, 3, true, &mii);
         }
 
+        // Delay lock toggle.
+        {
+            let mut label = wide("Lock audio delay");
+            let mii = MENUITEMINFOW {
+                cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+                fMask: MIIM_ID | MIIM_STRING | MIIM_STATE,
+                fState: if st.lock_delay { MFS_CHECKED } else { MFS_UNCHECKED },
+                wID: ID_LOCK_DELAY,
+                dwTypeData: PWSTR(label.as_mut_ptr()),
+                cch: label.len() as u32 - 1,
+                ..Default::default()
+            };
+            let _ = InsertMenuItemW(menu, 4, true, &mii);
+        }
+
         // Autostart toggle.
         {
             let autostart_on = autostart::is_autostart_enabled();
@@ -356,7 +375,7 @@ unsafe fn handle_right_click(hwnd: HWND) {
                 cch: label.len() as u32 - 1,
                 ..Default::default()
             };
-            let _ = InsertMenuItemW(menu, 4, true, &mii);
+            let _ = InsertMenuItemW(menu, 5, true, &mii);
         }
 
         // Separator.
@@ -367,7 +386,7 @@ unsafe fn handle_right_click(hwnd: HWND) {
                 fType: MFT_SEPARATOR,
                 ..Default::default()
             };
-            let _ = InsertMenuItemW(menu, 5, true, &mii);
+            let _ = InsertMenuItemW(menu, 6, true, &mii);
         }
 
         // Help submenu.
@@ -406,7 +425,7 @@ unsafe fn handle_right_click(hwnd: HWND) {
                 cch: label.len() as u32 - 1,
                 ..Default::default()
             };
-            let _ = InsertMenuItemW(menu, 6, true, &mii);
+            let _ = InsertMenuItemW(menu, 7, true, &mii);
         }
 
         // Exit.
@@ -420,7 +439,7 @@ unsafe fn handle_right_click(hwnd: HWND) {
                 cch: label.len() as u32 - 1,
                 ..Default::default()
             };
-            let _ = InsertMenuItemW(menu, 7, true, &mii);
+            let _ = InsertMenuItemW(menu, 8, true, &mii);
         }
 
         drop(st);
@@ -450,6 +469,8 @@ unsafe fn handle_menu_command(id: u32) {
                     Some(&new_id),
                     st.preferred_speaker_id.as_deref(),
                     st.preferred_output_id.as_deref(),
+                    st.delay_ms,
+                    st.lock_delay,
                 );
                 drop(st);
                 let _ = ctx.cmd_tx.send(EngineCommand::SetMicDevice(new_id));
@@ -463,6 +484,8 @@ unsafe fn handle_menu_command(id: u32) {
                     st.preferred_mic_id.as_deref(),
                     Some(&new_id),
                     st.preferred_output_id.as_deref(),
+                    st.delay_ms,
+                    st.lock_delay,
                 );
                 drop(st);
                 let _ = ctx.cmd_tx.send(EngineCommand::SetSpeakerDevice(new_id));
@@ -476,10 +499,30 @@ unsafe fn handle_menu_command(id: u32) {
                     st.preferred_mic_id.as_deref(),
                     st.preferred_speaker_id.as_deref(),
                     Some(&new_id),
+                    st.delay_ms,
+                    st.lock_delay,
                 );
                 drop(st);
                 let _ = ctx.cmd_tx.send(EngineCommand::SetOutputDevice(new_id));
             }
+        } else if id == ID_LOCK_DELAY {
+            let mut st = ctx.state.lock().unwrap();
+            st.lock_delay = !st.lock_delay;
+            let delay = st.current_delay_ms.or(st.delay_ms);
+            if st.lock_delay {
+                st.delay_ms = delay;
+            } else {
+                st.delay_ms = None;
+            }
+            config::save(
+                st.preferred_mic_id.as_deref(),
+                st.preferred_speaker_id.as_deref(),
+                st.preferred_output_id.as_deref(),
+                st.delay_ms,
+                st.lock_delay,
+            );
+            drop(st);
+            let _ = ctx.cmd_tx.send(EngineCommand::RefreshDevices);
         } else if id == ID_AUTOSTART {
             if autostart::is_autostart_enabled() {
                 let _ = autostart::disable_autostart();

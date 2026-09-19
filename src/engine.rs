@@ -292,6 +292,23 @@ impl AudioEngine {
         }
     }
 
+    fn apply_delay_lock(
+        &self,
+        processor: &mut Option<AecProcessor>,
+        st: &mut std::sync::MutexGuard<'_, TrayState>,
+    ) {
+        let lock_delay = st.lock_delay;
+        let delay_ms = st.delay_ms.or(st.current_delay_ms);
+        if let Some(p) = processor {
+            p.configure_delay_lock(lock_delay, delay_ms);
+        }
+        if lock_delay {
+            st.current_delay_ms = delay_ms;
+        } else {
+            st.current_delay_ms = None;
+        }
+    }
+
     fn ensure_mic_capture(
         &self,
         mic_id: &mut Option<String>,
@@ -433,6 +450,10 @@ impl AudioEngine {
         let mut ref_pipe: Option<RefPipeline> = None;
         let mut mic_capture: Option<MicCapture> = None;
         let mut processor: Option<AecProcessor> = Some(AecProcessor::new()?);
+        {
+            let mut st = self.state.lock().unwrap();
+            self.apply_delay_lock(&mut processor, &mut st);
+        }
 
         let mut mic_frame = vec![0.0f32; FRAME_SIZE];
         let mut ref_frame = vec![0.0f32; FRAME_SIZE];
@@ -507,6 +528,9 @@ impl AudioEngine {
                         let mut st = self.state.lock().unwrap();
                         st.preferred_mic_id = Some(new_id.clone());
                         st.current_mic_id = Some(new_id);
+                        if st.lock_delay {
+                            st.delay_ms = st.delay_ms.or(st.current_delay_ms);
+                        }
                     }
                     self.ensure_running(
                         &mut mic_id,
@@ -594,6 +618,15 @@ impl AudioEngine {
                     if self.verbose {
                         eprintln!("[engine] Refreshing devices...");
                     }
+                    {
+                        let mut st = self.state.lock().unwrap();
+                        if st.lock_delay {
+                            st.delay_ms = st.delay_ms.or(st.current_delay_ms);
+                        }
+                        if let Some(p) = &mut processor {
+                            p.configure_delay_lock(st.lock_delay, st.delay_ms.or(st.current_delay_ms));
+                        }
+                    }
                     if let Some(ref mut mc) = mic_capture {
                         mc.shutdown();
                     }
@@ -663,6 +696,16 @@ impl AudioEngine {
                 }
 
                 None => {}
+            }
+
+            if let Some(p) = processor.as_ref() {
+                if let Some(delay) = p.current_delay_ms() {
+                    let mut st = self.state.lock().unwrap();
+                    st.current_delay_ms = Some(delay);
+                    if st.lock_delay {
+                        st.delay_ms = Some(delay);
+                    }
+                }
             }
 
             // ----------------------------------------------------------------

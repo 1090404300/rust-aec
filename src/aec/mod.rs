@@ -17,6 +17,8 @@ pub struct AecProcessor {
     apm: AudioProcessing,
     render_buf: Vec<f32>,
     last_delay_recheck: Instant,
+    lock_delay: bool,
+    fixed_delay_ms: Option<i32>,
 }
 
 impl AecProcessor {
@@ -35,14 +37,37 @@ impl AecProcessor {
             apm,
             render_buf: vec![0.0f32; FRAME_SIZE],
             last_delay_recheck: Instant::now(),
+            lock_delay: false,
+            fixed_delay_ms: None,
         })
+    }
+
+    pub fn configure_delay_lock(&mut self, lock_delay: bool, delay_ms: Option<i32>) {
+        self.lock_delay = lock_delay;
+        self.fixed_delay_ms = delay_ms;
+        if lock_delay {
+            if let Some(delay) = delay_ms {
+                let _ = self.apm.set_stream_delay_ms(delay);
+            }
+        } else {
+            self.apm.reset_delay_estimator();
+            self.last_delay_recheck = Instant::now();
+        }
+    }
+
+    pub fn current_delay_ms(&self) -> Option<i32> {
+        self.apm.statistics().delay_ms
     }
 
     /// Process one 10ms frame.
     /// `mic_frame` and `ref_frame` must each be exactly FRAME_SIZE samples.
     /// Returns processed (echo-cancelled) samples.
     pub fn process_frame(&mut self, mic_frame: &[f32], ref_frame: &[f32], out: &mut [f32]) {
-        if self.last_delay_recheck.elapsed() >= DELAY_RECHECK_INTERVAL {
+        if self.lock_delay {
+            if let Some(delay) = self.fixed_delay_ms {
+                let _ = self.apm.set_stream_delay_ms(delay);
+            }
+        } else if self.last_delay_recheck.elapsed() >= DELAY_RECHECK_INTERVAL {
             self.apm.reset_delay_estimator();
             self.last_delay_recheck = Instant::now();
         }
