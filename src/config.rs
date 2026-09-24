@@ -1,5 +1,5 @@
 // Persistent device selection config stored next to the executable.
-// Format: simple key=value lines (mic=<id>, speaker=<id>, output=<id>, delay_ms=<ms>, lock_delay=<0|1>).
+// Format: simple key=value lines; delay_samples is the AEC's 16 kHz sample count.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ pub struct Config {
     pub mic: Option<String>,
     pub speaker: Option<String>,
     pub output: Option<String>,
-    pub delay_ms: Option<i32>,
+    pub delay_samples: Option<i32>,
     pub lock_delay: bool,
 }
 
@@ -22,11 +22,11 @@ mod tests {
             mic: None,
             speaker: None,
             output: None,
-            delay_ms: Some(42),
+            delay_samples: Some(672),
             lock_delay: true,
         };
 
-        assert_eq!(cfg.delay_ms, Some(42));
+        assert_eq!(cfg.delay_samples, Some(672));
         assert!(cfg.lock_delay);
     }
 }
@@ -42,7 +42,7 @@ pub fn load() -> Config {
             mic: None,
             speaker: None,
             output: None,
-            delay_ms: None,
+            delay_samples: None,
             lock_delay: false,
         };
     };
@@ -51,7 +51,7 @@ pub fn load() -> Config {
             mic: None,
             speaker: None,
             output: None,
-            delay_ms: None,
+            delay_samples: None,
             lock_delay: false,
         };
     };
@@ -61,9 +61,14 @@ pub fn load() -> Config {
             map.insert(k.trim(), v.trim());
         }
     }
-    let delay_ms = map
-        .get("delay_ms")
-        .and_then(|v| v.parse::<i32>().ok());
+    let delay_samples = map
+        .get("delay_samples")
+        .and_then(|v| v.parse::<i32>().ok())
+        .or_else(|| {
+            map.get("delay_ms")
+                .and_then(|v| v.parse::<i32>().ok())
+                .map(|ms| ms.saturating_mul(16))
+        });
     let lock_delay = map
         .get("lock_delay")
         .map(|v| matches!(v.trim(), "1" | "true" | "yes" | "on"))
@@ -73,7 +78,7 @@ pub fn load() -> Config {
         mic: map.get("mic").map(|s| s.to_string()),
         speaker: map.get("speaker").map(|s| s.to_string()),
         output: map.get("output").map(|s| s.to_string()),
-        delay_ms,
+        delay_samples,
         lock_delay,
     }
 }
@@ -82,7 +87,7 @@ pub fn save(
     mic: Option<&str>,
     speaker: Option<&str>,
     output: Option<&str>,
-    delay_ms: Option<i32>,
+    delay_samples: Option<i32>,
     lock_delay: bool,
 ) {
     let Some(path) = config_path() else { return };
@@ -96,8 +101,8 @@ pub fn save(
     if let Some(id) = output {
         lines.push(format!("output={id}"));
     }
-    if let Some(delay) = delay_ms {
-        lines.push(format!("delay_ms={delay}"));
+    if let Some(samples) = delay_samples {
+        lines.push(format!("delay_samples={samples}"));
     }
     lines.push(format!("lock_delay={}", if lock_delay { "1" } else { "0" }));
     let _ = std::fs::write(path, lines.join("\n"));

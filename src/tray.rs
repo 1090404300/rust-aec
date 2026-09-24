@@ -45,8 +45,8 @@ pub struct TrayState {
     pub preferred_output_id: Option<String>,
     pub current_output_id: Option<String>,
     pub lock_delay: bool,
-    pub delay_ms: Option<i32>,
-    pub current_delay_ms: Option<i32>,
+    pub delay_samples: Option<i32>,
+    pub current_delay_samples: Option<i32>,
 }
 
 struct TrayContext {
@@ -469,7 +469,7 @@ unsafe fn handle_menu_command(id: u32) {
                     Some(&new_id),
                     st.preferred_speaker_id.as_deref(),
                     st.preferred_output_id.as_deref(),
-                    st.delay_ms,
+                    st.delay_samples,
                     st.lock_delay,
                 );
                 drop(st);
@@ -484,7 +484,7 @@ unsafe fn handle_menu_command(id: u32) {
                     st.preferred_mic_id.as_deref(),
                     Some(&new_id),
                     st.preferred_output_id.as_deref(),
-                    st.delay_ms,
+                    st.delay_samples,
                     st.lock_delay,
                 );
                 drop(st);
@@ -499,7 +499,7 @@ unsafe fn handle_menu_command(id: u32) {
                     st.preferred_mic_id.as_deref(),
                     st.preferred_speaker_id.as_deref(),
                     Some(&new_id),
-                    st.delay_ms,
+                    st.delay_samples,
                     st.lock_delay,
                 );
                 drop(st);
@@ -508,17 +508,17 @@ unsafe fn handle_menu_command(id: u32) {
         } else if id == ID_LOCK_DELAY {
             let mut st = ctx.state.lock().unwrap();
             st.lock_delay = !st.lock_delay;
-            let delay = st.current_delay_ms.or(st.delay_ms);
+            let delay = st.current_delay_samples.or(st.delay_samples);
             if st.lock_delay {
-                st.delay_ms = delay;
+                st.delay_samples = delay;
             } else {
-                st.delay_ms = None;
+                st.delay_samples = None;
             }
             config::save(
                 st.preferred_mic_id.as_deref(),
                 st.preferred_speaker_id.as_deref(),
                 st.preferred_output_id.as_deref(),
-                st.delay_ms,
+                st.delay_samples,
                 st.lock_delay,
             );
             drop(st);

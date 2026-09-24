@@ -11,8 +11,8 @@ use crate::alignment_mixer::AlignmentMixer;
 use crate::block::Block;
 use crate::block_buffer::BlockBuffer;
 use crate::common::{
-    BLOCK_SIZE, BLOCK_SIZE_MS, FFT_LENGTH_BY_2, get_down_sampled_buffer_size,
-    get_render_delay_buffer_size, num_bands_for_rate,
+    BLOCK_SIZE, FFT_LENGTH_BY_2, get_down_sampled_buffer_size, get_render_delay_buffer_size,
+    num_bands_for_rate,
 };
 use crate::config::EchoCanceller3Config;
 use crate::decimator::Decimator;
@@ -314,12 +314,11 @@ impl RenderDelayBuffer {
     }
 
     /// Provides an optional external estimate of the audio buffer delay.
-    pub(crate) fn set_audio_buffer_delay(&mut self, delay_ms: i32) {
-        const SAMPLE_RATE_FOR_FIXED_CAPTURE_DELAY: i32 = 16000;
-        const NUM_SAMPLES_PER_MS: i32 = SAMPLE_RATE_FOR_FIXED_CAPTURE_DELAY / 1000;
+    pub(crate) fn set_audio_buffer_delay_samples(&mut self, delay_samples: i32) {
+        const BLOCK_SIZE_SAMPLES: i32 = 64;
         self.external_audio_buffer_delay = Some(
-            (delay_ms * NUM_SAMPLES_PER_MS + self.config.delay.fixed_capture_delay_samples as i32)
-                / (BLOCK_SIZE_MS as i32 * NUM_SAMPLES_PER_MS),
+            (delay_samples + self.config.delay.fixed_capture_delay_samples as i32)
+                / BLOCK_SIZE_SAMPLES,
         );
     }
 

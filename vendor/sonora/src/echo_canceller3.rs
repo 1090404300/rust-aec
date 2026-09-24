@@ -704,8 +704,9 @@ impl EchoCanceller3 {
     }
 
     /// Provides an optional external estimate of the audio buffer delay.
-    pub(crate) fn set_audio_buffer_delay(&mut self, delay_ms: i32) {
-        self.block_processor.set_audio_buffer_delay(delay_ms);
+    pub(crate) fn set_audio_buffer_delay_samples(&mut self, delay_samples: i32) {
+        self.block_processor
+            .set_audio_buffer_delay_samples(delay_samples);
     }
 
     pub(crate) fn reset_delay_estimator(&mut self) {

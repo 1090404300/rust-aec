@@ -383,6 +383,7 @@ impl AudioProcessingBuilder {
             capture_config: self.capture_config,
             render_config: self.render_config,
             stream_delay_ms: 0,
+            stream_delay_samples: 0,
             was_stream_delay_set: false,
         }
     }
@@ -431,6 +432,7 @@ pub struct AudioProcessing {
     pub(crate) capture_config: StreamConfig,
     pub(crate) render_config: StreamConfig,
     stream_delay_ms: i32,
+    stream_delay_samples: i32,
     was_stream_delay_set: bool,
 }
 
@@ -590,6 +592,7 @@ impl AudioProcessing {
             warning = true;
         }
         self.stream_delay_ms = clamped;
+        self.stream_delay_samples = clamped.saturating_mul(16);
         self.inner.set_stream_delay_ms(clamped);
         if warning {
             Err(Error::StreamParameterClamped)
@@ -601,6 +604,34 @@ impl AudioProcessing {
     /// Returns the current stream delay in ms.
     pub fn stream_delay_ms(&self) -> i32 {
         self.stream_delay_ms
+    }
+
+    /// Sets the delay using the internal 16 kHz sample unit.
+    pub fn set_stream_delay_samples(&mut self, delay_samples: i32) -> Result<(), Error> {
+        self.was_stream_delay_set = true;
+        let mut clamped = delay_samples;
+        let mut warning = false;
+        if clamped < 0 {
+            clamped = 0;
+            warning = true;
+        }
+        if clamped > 8000 {
+            clamped = 8000;
+            warning = true;
+        }
+        self.stream_delay_samples = clamped;
+        self.stream_delay_ms = clamped / 16;
+        self.inner.set_stream_delay_samples(clamped);
+        if warning {
+            Err(Error::StreamParameterClamped)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Returns the configured delay in the internal 16 kHz sample unit.
+    pub fn stream_delay_samples(&self) -> i32 {
+        self.stream_delay_samples
     }
 
     pub fn reset_delay_estimator(&mut self) {

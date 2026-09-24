@@ -298,14 +298,14 @@ impl AudioEngine {
         st: &mut std::sync::MutexGuard<'_, TrayState>,
     ) {
         let lock_delay = st.lock_delay;
-        let delay_ms = st.delay_ms.or(st.current_delay_ms);
+        let delay_samples = st.delay_samples.or(st.current_delay_samples);
         if let Some(p) = processor {
-            p.configure_delay_lock(lock_delay, delay_ms);
+            p.configure_delay_lock(lock_delay, delay_samples);
         }
         if lock_delay {
-            st.current_delay_ms = delay_ms;
+            st.current_delay_samples = delay_samples;
         } else {
-            st.current_delay_ms = None;
+            st.current_delay_samples = None;
         }
     }
 
@@ -529,7 +529,7 @@ impl AudioEngine {
                         st.preferred_mic_id = Some(new_id.clone());
                         st.current_mic_id = Some(new_id);
                         if st.lock_delay {
-                            st.delay_ms = st.delay_ms.or(st.current_delay_ms);
+                            st.delay_samples = st.delay_samples.or(st.current_delay_samples);
                         }
                     }
                     self.ensure_running(
@@ -621,10 +621,10 @@ impl AudioEngine {
                     {
                         let mut st = self.state.lock().unwrap();
                         if st.lock_delay {
-                            st.delay_ms = st.delay_ms.or(st.current_delay_ms);
+                            st.delay_samples = st.delay_samples.or(st.current_delay_samples);
                         }
                         if let Some(p) = &mut processor {
-                            p.configure_delay_lock(st.lock_delay, st.delay_ms.or(st.current_delay_ms));
+                            p.configure_delay_lock(st.lock_delay, st.delay_samples.or(st.current_delay_samples));
                         }
                     }
                     if let Some(ref mut mc) = mic_capture {
@@ -699,11 +699,11 @@ impl AudioEngine {
             }
 
             if let Some(p) = processor.as_ref() {
-                if let Some(delay) = p.current_delay_ms() {
+                if let Some(delay) = p.current_delay_samples() {
                     let mut st = self.state.lock().unwrap();
-                    st.current_delay_ms = Some(delay);
+                    st.current_delay_samples = Some(delay);
                     if st.lock_delay {
-                        st.delay_ms = Some(delay);
+                        st.delay_samples = Some(delay);
                     }
                 }
             }

@@ -284,8 +284,8 @@ fn run(verbose: bool) -> Result<()> {
         preferred_output_id: preferred_output_id.or_else(|| output_id.clone()),
         current_output_id: output_id,
         lock_delay: cfg.lock_delay,
-        delay_ms: cfg.delay_ms,
-        current_delay_ms: cfg.delay_ms,
+        delay_samples: cfg.delay_samples,
+        current_delay_samples: cfg.delay_samples,
     }));
 
     let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded::<EngineCommand>();

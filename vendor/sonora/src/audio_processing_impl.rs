@@ -83,6 +83,7 @@ struct CaptureState {
     recommended_input_volume: Option<i32>,
     was_stream_delay_set: bool,
     stream_delay_ms: i32,
+    stream_delay_samples: i32,
 }
 
 impl Default for CaptureState {
@@ -102,6 +103,7 @@ impl Default for CaptureState {
             recommended_input_volume: None,
             was_stream_delay_set: false,
             stream_delay_ms: 0,
+            stream_delay_samples: 0,
         }
     }
 }
@@ -317,6 +319,12 @@ impl AudioProcessingImpl {
     pub(crate) fn set_stream_delay_ms(&mut self, delay_ms: i32) {
         self.capture.was_stream_delay_set = true;
         self.capture.stream_delay_ms = delay_ms;
+        self.capture.stream_delay_samples = delay_ms.saturating_mul(16);
+    }
+
+    pub(crate) fn set_stream_delay_samples(&mut self, delay_samples: i32) {
+        self.capture.was_stream_delay_set = true;
+        self.capture.stream_delay_samples = delay_samples;
     }
 
     pub(crate) fn reset_delay_estimator(&mut self) {
@@ -597,7 +605,7 @@ impl AudioProcessingImpl {
         // Phase 7: Echo control processing.
         if let Some(ec) = &mut self.submodules.echo_controller {
             if self.capture.was_stream_delay_set {
-                ec.set_audio_buffer_delay(self.capture.stream_delay_ms);
+                ec.set_audio_buffer_delay_samples(self.capture.stream_delay_samples);
             }
             let echo_path_gain_change = self.capture.echo_path_gain_change;
             let capture_buffer = self.capture.capture_audio.as_mut().unwrap();
@@ -752,6 +760,7 @@ impl AudioProcessingImpl {
             self.capture.stats.echo_return_loss_enhancement =
                 Some(metrics.echo_return_loss_enhancement);
             self.capture.stats.delay_ms = Some(metrics.delay_ms);
+            self.capture.stats.delay_samples = Some(metrics.delay_samples);
         }
 
         // Phase 11: Update recommended input volume.

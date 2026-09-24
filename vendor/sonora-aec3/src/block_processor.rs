@@ -41,6 +41,8 @@ pub struct BlockProcessorMetricsOutput {
     pub echo_return_loss_enhancement: f64,
     /// Instantaneous delay estimate in milliseconds.
     pub delay_ms: i32,
+    /// Instantaneous delay in 16 kHz samples.
+    pub delay_samples: i32,
 }
 
 impl BlockProcessor {
@@ -112,12 +114,13 @@ impl BlockProcessor {
             echo_return_loss: echo_metrics.echo_return_loss,
             echo_return_loss_enhancement: echo_metrics.echo_return_loss_enhancement,
             delay_ms: self.render_buffer.delay() as i32 * BLOCK_SIZE_MS as i32,
+            delay_samples: self.render_buffer.delay() as i32 * 64,
         }
     }
 
     /// Provides an optional external estimate of the audio buffer delay.
-    pub fn set_audio_buffer_delay(&mut self, delay_ms: i32) {
-        self.render_buffer.set_audio_buffer_delay(delay_ms);
+    pub fn set_audio_buffer_delay_samples(&mut self, delay_samples: i32) {
+        self.render_buffer.set_audio_buffer_delay_samples(delay_samples);
     }
 
     pub fn reset_delay_estimator(&mut self) {

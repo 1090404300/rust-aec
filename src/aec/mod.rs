@@ -18,7 +18,7 @@ pub struct AecProcessor {
     render_buf: Vec<f32>,
     last_delay_recheck: Instant,
     lock_delay: bool,
-    fixed_delay_ms: Option<i32>,
+    fixed_delay_samples: Option<i32>,
 }
 
 impl AecProcessor {
@@ -38,16 +38,16 @@ impl AecProcessor {
             render_buf: vec![0.0f32; FRAME_SIZE],
             last_delay_recheck: Instant::now(),
             lock_delay: false,
-            fixed_delay_ms: None,
+            fixed_delay_samples: None,
         })
     }
 
-    pub fn configure_delay_lock(&mut self, lock_delay: bool, delay_ms: Option<i32>) {
+    pub fn configure_delay_lock(&mut self, lock_delay: bool, delay_samples: Option<i32>) {
         self.lock_delay = lock_delay;
-        self.fixed_delay_ms = delay_ms;
+        self.fixed_delay_samples = delay_samples;
         if lock_delay {
-            if let Some(delay) = delay_ms {
-                let _ = self.apm.set_stream_delay_ms(delay);
+            if let Some(samples) = delay_samples {
+                let _ = self.apm.set_stream_delay_samples(samples);
             }
         } else {
             self.apm.reset_delay_estimator();
@@ -55,8 +55,8 @@ impl AecProcessor {
         }
     }
 
-    pub fn current_delay_ms(&self) -> Option<i32> {
-        self.apm.statistics().delay_ms
+    pub fn current_delay_samples(&self) -> Option<i32> {
+        self.apm.statistics().delay_samples
     }
 
     /// Process one 10ms frame.
@@ -64,8 +64,8 @@ impl AecProcessor {
     /// Returns processed (echo-cancelled) samples.
     pub fn process_frame(&mut self, mic_frame: &[f32], ref_frame: &[f32], out: &mut [f32]) {
         if self.lock_delay {
-            if let Some(delay) = self.fixed_delay_ms {
-                let _ = self.apm.set_stream_delay_ms(delay);
+            if let Some(samples) = self.fixed_delay_samples {
+                let _ = self.apm.set_stream_delay_samples(samples);
             }
         } else if self.last_delay_recheck.elapsed() >= DELAY_RECHECK_INTERVAL {
             self.apm.reset_delay_estimator();

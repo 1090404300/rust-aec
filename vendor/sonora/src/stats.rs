@@ -36,4 +36,6 @@ pub struct AudioProcessingStats {
     /// [`AudioProcessing::statistics()`](crate::AudioProcessing::statistics),
     /// not an aggregated value.
     pub delay_ms: Option<i32>,
+    /// Instantaneous delay in 16 kHz samples.
+    pub delay_samples: Option<i32>,
 }
